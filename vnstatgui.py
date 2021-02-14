@@ -76,6 +76,13 @@ class maingui(Frame):
         #printBtn = Button(self, text="print tree", command=lambda: self.printtree())
         #printBtn.pack()
 
+        self.minsizeVar = StringVar()
+        self.minsizeVar.set(-1)
+        self.minsizelbl = Label(self.iface_frame, text='Min Data Size').pack()   
+        self.minsize = Spinbox(self.iface_frame, textvariable=self.minsizeVar, from_=-1, to=10000).pack()
+    
+        
+
     def treeview_sort_column(self, tv, col, reverse):
         try:
             data_list = [
@@ -151,7 +158,7 @@ class maingui(Frame):
                 self.pdate = self.ddate
 
             try:
-                if self.ddate >= startDate and self.ddate <= endDate:
+                if self.ddate >= startDate and self.ddate <= endDate and line[5] > float(self.minsizeVar.get()):
                     self.treeview.insert(parent='', 
                                     index='end', 
                                     iid=self.count, 
@@ -161,7 +168,7 @@ class maingui(Frame):
                     #print(type(self.ddate),' datetime ', self.ddate)
             except:
                 try:
-                    if self.ddate >= startDate.date() and self.ddate <= endDate.date():
+                    if self.ddate >= startDate.date() and self.ddate <= endDate.date() and line[5] > float(self.minsizeVar.get()):
                         self.treeview.insert(parent='',
                                         index='end', 
                                         iid=self.count, 
@@ -212,125 +219,128 @@ class filterdate(Frame):
         Frame.__init__(self, parent)
         label = Label(self, text="SELECT DATE RANGE", font = LargeFont)
         label.pack(pady=10,padx=10)
-        from_hour_string=StringVar()
-        from_min_string=StringVar()
-        to_hour_string=StringVar()
-        to_min_string=StringVar()
-        from_hour_string.set(0)
-        from_min_string.set(0)
-        to_hour_string.set(datetime.now().hour)
-        to_min_string.set(datetime.now().minute)
-        f = ('Times', 12)
+        
+        self.from_hour_string=StringVar()
+        self.from_min_string=StringVar()
+        self.to_hour_string=StringVar()
+        self.to_min_string=StringVar()
+        self.from_hour_string.set(0)
+        self.from_min_string.set(0)
+        self.to_hour_string.set(datetime.now().hour)
+        self.to_min_string.set(datetime.now().minute)
+        self.f = ('Times', 12)
 
-        mainFrame = Frame(self)
-        mainFrame.pack(side=TOP)
+        self.mainFrame = Frame(self)
+        self.mainFrame.pack(side=TOP)
 
-        fromFrame = LabelFrame(mainFrame, text='From Date', labelanchor=N)
-        toFrame = LabelFrame(mainFrame, text='To Date', labelanchor=N)
-        fromFrame.pack(pady=10, side=LEFT)
-        toFrame.pack(pady=10, side=RIGHT)
+        self.fromFrame = LabelFrame(self.mainFrame, text='From Date', labelanchor=N)
+        self.toFrame = LabelFrame(self.mainFrame, text='To Date', labelanchor=N)
+        self.fromFrame.pack(pady=10, side=LEFT)
+        self.toFrame.pack(pady=10, side=RIGHT)
 
-        calFrom = Calendar(fromFrame, selectmode='day') #  year=2021, month=1, day=1
-        calFrom.pack(padx=5)
+        self.calFrom = Calendar(self.fromFrame, selectmode='day') #  year=2021, month=1, day=1
+        self.calFrom.pack(padx=5)
 
-        calTo = Calendar(toFrame, selectmode='day')
-        calTo.pack(padx=5)
+        self.calTo = Calendar(self.toFrame, selectmode='day')
+        self.calTo.pack(padx=5)
 
-        def setFromDateTime():
-            fromDate = calFrom.selection_get()
-            fromHour = from_hour_sb.get()
-            fromMin = from_min_sb.get()
-            fromtime = time(int(fromHour), int(fromMin))
-            fromDateTime = datetime.combine(fromDate, fromtime)
-            startDate = fromDateTime
-            return startDate
-
-        def setToDateTime():
-            toDate = calTo.selection_get()
-            toHour = to_hour_sb.get()
-            toMin = to_min_sb.get()
-            totime = time(int(toHour), int(toMin))
-            toDateTime = datetime.combine(toDate, totime)
-            endDate = toDateTime
-            return endDate
-
-        from_hour_sb = Spinbox(
-            fromFrame,
+        self.from_hour_sb = Spinbox(
+            self.fromFrame,
             from_=0,
             to=23,
             wrap=True,
-            textvariable=from_hour_string,
+            textvariable=self.from_hour_string,
             width=1,
-            font=f,
+            font=self.f,
             justify=CENTER
             )
-        from_min_sb = Spinbox(
-            fromFrame,
+        self.from_min_sb = Spinbox(
+            self.fromFrame,
             from_=0,
             to=59,
             wrap=True,
-            textvariable=from_min_string,
-            font=f,
+            textvariable=self.from_min_string,
+            font=self.f,
             width=1,
             justify=CENTER
             )
 
-        frommsg = Label(
-            fromFrame, 
+        self.frommsg = Label(
+            self.fromFrame, 
             text="Hour     Minute",
             font=("Times", 12)
             )
-        frommsg.pack(pady=(10, 0))
+        self.frommsg.pack(pady=(10, 0))
 
-        from_hour_sb.pack(padx=(60, 0),side=LEFT, fill=X, expand=True)
-        from_min_sb.pack(padx=(0, 60), side=LEFT, fill=X, expand=True)
+        self.from_hour_sb.pack(padx=(60, 0),side=LEFT, fill=X, expand=True)
+        self.from_min_sb.pack(padx=(0, 60), side=LEFT, fill=X, expand=True)
 
 
-        to_hour_sb = Spinbox(
-            toFrame,
+        self.to_hour_sb = Spinbox(
+            self.toFrame,
             from_=0,
             to=23,
             wrap=True,
-            textvariable=to_hour_string,
+            textvariable=self.to_hour_string,
             width=1,
-            font=f,
+            font=self.f,
             justify=CENTER
             )
-        to_min_sb = Spinbox(
-            toFrame,
+        self.to_min_sb = Spinbox(
+            self.toFrame,
             from_=0,
             to=59,
             wrap=True,
-            textvariable=to_min_string,
-            font=f,
+            textvariable=self.to_min_string,
+            font=self.f,
             width=1,
             justify=CENTER
             )
 
-        tomsg = Label(
-            toFrame, 
+        self.tomsg = Label(
+            self.toFrame, 
             text="Hour     Minute",
             font=("Times", 12)
             )
-        tomsg.pack(pady=(10, 0))
+        self.tomsg.pack(pady=(10, 0))
 
-        to_hour_sb.pack(padx=(60, 0), side=LEFT, fill=X, expand=True)
-        to_min_sb.pack(padx=(0, 60), side=LEFT, fill=X, expand=True)
+        self.to_hour_sb.pack(padx=(60, 0), side=LEFT, fill=X, expand=True)
+        self.to_min_sb.pack(padx=(0, 60), side=LEFT, fill=X, expand=True)
 
-        def Confirm():
-            global startDate, endDate
-            #print('startDate', startDate)
-            #print('endDate ', endDate)
-            startDate = setFromDateTime()
-            endDate = setToDateTime()
-            #print('From Date ',type(startDate), startDate)
-            #print('To Date ', type(endDate), endDate)
-            controller.show_frame(maingui)
+        self.confirmBtn = Button(self, text="Confirm", command=lambda: self.Confirm())
+        self.confirmBtn.pack(side=TOP, fill=X, padx=5)
+        self.backBtn = Button(self, text="Back", command=lambda: controller.show_frame(maingui))
+        self.backBtn.pack(side=TOP, fill=X, padx=5)
+        
+        self.concom = lambda: controller.show_frame(maingui)
 
-        confirmBtn = Button(self, text="Confirm", command=lambda: Confirm())
-        confirmBtn.pack(side=TOP, fill=X, padx=5)
-        backBtn = Button(self, text="Back", command=lambda: controller.show_frame(maingui))
-        backBtn.pack(side=TOP, fill=X, padx=5)        
+    def setFromDateTime(self):
+        self.fromDate = self.calFrom.selection_get()
+        self.fromHour = self.from_hour_sb.get()
+        self.fromMin = self.from_min_sb.get()
+        self.fromtime = time(int(self.fromHour), int(self.fromMin))
+        self.fromDateTime = datetime.combine(self.fromDate, self.fromtime)
+        startDate = self.fromDateTime
+        return startDate
+
+    def setToDateTime(self):
+        self.toDate = self.calTo.selection_get()
+        self.toHour = self.to_hour_sb.get()
+        self.toMin = self.to_min_sb.get()
+        self.totime = time(int(self.toHour), int(self.toMin))
+        self.toDateTime = datetime.combine(self.toDate, self.totime)
+        endDate = self.toDateTime
+        return endDate
+
+    def Confirm(self):
+        global startDate, endDate
+        #print('startDate', startDate)
+        #print('endDate ', endDate)
+        startDate = self.setFromDateTime()
+        endDate = self.setToDateTime()
+        #print('From Date ',type(startDate), startDate)
+        #print('To Date ', type(endDate), endDate)
+        self.concom()
 
 class MenuBar(Menu):
     def __init__(self, master):
