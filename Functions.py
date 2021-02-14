@@ -103,8 +103,3 @@ def getinterfaces():
             interface_list.append(iface)
     
     return interface_list
-
-
-#print(getinterfaces())
-#for i in getoutput('h', getinterfaces()):
-#    print(i)
