@@ -27,8 +27,7 @@ def getoutput(params, iface='wlan0'):
                     down = traffic['rx']/1024/1024
                     up = traffic['tx']/1024/1024
                     total = down + up
-                    #if total > 0:  # Do not add row if there is was no traffic
-                    li.append([jdate, down, downtxt, up, uptxt, total, totaltxt]) # .strftime('%d-%m-%Y | %H:%M')
+                    li.append([jdate, down, downtxt, up, uptxt, total, totaltxt])
 
     elif params == 'd':
         for interface in data['interfaces']:
@@ -43,7 +42,7 @@ def getoutput(params, iface='wlan0'):
                     down = traffic['rx']/1024/1024
                     up = traffic['tx']/1024/1024
                     total = down + up
-                    li.append([jdate.date(), down, downtxt, up, uptxt, total, totaltxt]) # .strftime('%d-%m-%Y')
+                    li.append([jdate.date(), down, downtxt, up, uptxt, total, totaltxt])
 
     elif params == 'm':
         for interface in data['interfaces']:
@@ -58,7 +57,7 @@ def getoutput(params, iface='wlan0'):
                     down = traffic['rx']/1024/1024
                     up = traffic['tx']/1024/1024
                     total = down + up
-                    li.append([jdate.date(), down, downtxt, up, uptxt, total, totaltxt]) # .strftime('%m-%Y')
+                    li.append([jdate.date(), down, downtxt, up, uptxt, total, totaltxt])
 
     elif params == 't':
         for interface in data['interfaces']:
@@ -73,7 +72,7 @@ def getoutput(params, iface='wlan0'):
                     down = traffic['rx']/1024/1024
                     up = traffic['tx']/1024/1024
                     total = down + up
-                    li.append([jdate.date(), down, downtxt, up, uptxt, total, totaltxt]) # .strftime('%d-%m-%Y')
+                    li.append([jdate.date(), down, downtxt, up, uptxt, total, totaltxt])
 
     elif params == 'f':
         for interface in data['interfaces']:
@@ -90,8 +89,7 @@ def getoutput(params, iface='wlan0'):
                     down = traffic['rx']/1024/1024
                     up = traffic['tx']/1024/1024
                     total = down + up
-                    #if total > 0:  # Do not add row if there is was no traffic
-                    li.append([jdate, down, downtxt, up, uptxt, total, totaltxt]) # .strftime('%d-%m-%Y | %H:%M')
+                    li.append([jdate, down, downtxt, up, uptxt, total, totaltxt])
 
     return li
 

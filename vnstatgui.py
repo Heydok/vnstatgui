@@ -10,6 +10,8 @@ LargeFont = ("Verdana", 12)
 startDate = datetime(2021, 1, 1, 00, 00, 00)
 endDate = datetime.now()
 
+
+#  Containter Class
 class vnstatgui(Tk):
 
     def __init__(self, *args, **kwargs):
@@ -44,6 +46,7 @@ class vnstatgui(Tk):
         frame = self.frames[cont]
         frame.tkraise()
 
+#  Main window
 class maingui(Frame):
 
     def __init__(self, parent, controller):
@@ -82,7 +85,7 @@ class maingui(Frame):
         self.minsize = Spinbox(self.iface_frame, textvariable=self.minsizeVar, from_=-1, to=10000).pack()
     
         
-
+    #  Function to sort treeview data when clicking on column headers
     def treeview_sort_column(self, tv, col, reverse):
         try:
             data_list = [
@@ -90,8 +93,6 @@ class maingui(Frame):
 
         except Exception:
             data_list = [(self.treeview.set(k, col), k) for k in self.treeview.get_children("")]
-
-        #pprint(data_list)
 
         data_list.sort(reverse=reverse)
 
@@ -107,7 +108,8 @@ class maingui(Frame):
                 self.treeview, _col, not reverse
             ),
         )
-        
+    
+    #  Create and configure treeview
     def createTreeview(self):
         self.columns = ("Date", "Down", "Up", "Total")
 
@@ -138,6 +140,7 @@ class maingui(Frame):
         self.ifaceMenu.config(indicatoron=1, width=15, height=1)
         self.ifaceMenu.pack()
 
+    #  Add data to treeview
     def add_data(self, option, iface):
         for record in self.treeview.get_children():
             self.treeview.delete(record)
@@ -146,9 +149,9 @@ class maingui(Frame):
         
         for line in getoutput(option, iface):
             self.ddate = line[0]
-            self.download = '%0.2f %s' % (line[1], line[2]) # download = '%0.2f %s' % (line[1], line[2])
-            self.upload = '%0.2f %s' % (line[3], line[4]) # upload = '%0.2f %s' % (line[3], line[4])
-            self.total = '%0.2f %s' % (line[5], line[6]) # total = '%0.2f %s' % (line[5], line[6])
+            self.download = '%0.2f %s' % (line[1], line[2])
+            self.upload = '%0.2f %s' % (line[3], line[4])
+            self.total = '%0.2f %s' % (line[5], line[6])
             self.pdate = ''
             if option == 'm':
                 self.pdate = self.ddate.strftime('%Y-%m')
@@ -156,6 +159,8 @@ class maingui(Frame):
                 self.pdate = self.ddate.strftime('%Y-%m-%d | %H:%M')
             else:
                 self.pdate = self.ddate
+            
+            #  Still needs changes to be made to the datetime filter
 
             try:
                 if self.ddate >= startDate and self.ddate <= endDate and line[5] > float(self.minsizeVar.get()):
@@ -165,7 +170,6 @@ class maingui(Frame):
                                     text="Parent", 
                                     values=(self.pdate, self.download, self.upload, self.total))
                     self.count += 1
-                    #print(type(self.ddate),' datetime ', self.ddate)
             except:
                 try:
                     if self.ddate >= startDate.date() and self.ddate <= endDate.date() and line[5] > float(self.minsizeVar.get()):
@@ -175,16 +179,16 @@ class maingui(Frame):
                                         text="Parent", 
                                         values=(self.pdate, self.download, self.upload, self.total))
                         self.count += 1
-                        #print(type(self.ddate), ' date ', self.ddate)
                 except:
                     pass
-    
+    #  Fill in treeview data according to choice
     def showChoice(self):
         for op, val in self.dataOptions:
             if val == self.r.get():
                 self.treeframe.config(text=op)
                 self.add_data(self.r.get(), self.ifaceVar.get())
 
+    #  Setup and add radio buttons for data type
     def setupRadioButons(self):
         self.r = StringVar()
         self.r.set(1)
@@ -207,11 +211,14 @@ class maingui(Frame):
                         value=val).grid(row=self.grow, column=self.gcolumn, sticky=N)
             self.grow += 1
 
+
+    #  Test function for export option
     def printtree(self):
         for record in self.treeview.get_children():
             row = self.treeview.item(record)['values']
             print(row)
 
+#  Class for filtering the data by date
 class filterdate(Frame):
     
     def __init__(self, parent, controller):
@@ -238,7 +245,7 @@ class filterdate(Frame):
         self.fromFrame.pack(pady=10, side=LEFT)
         self.toFrame.pack(pady=10, side=RIGHT)
 
-        self.calFrom = Calendar(self.fromFrame, selectmode='day') #  year=2021, month=1, day=1
+        self.calFrom = Calendar(self.fromFrame, selectmode='day')
         self.calFrom.pack(padx=5)
 
         self.calTo = Calendar(self.toFrame, selectmode='day')
@@ -334,34 +341,19 @@ class filterdate(Frame):
 
     def Confirm(self):
         global startDate, endDate
-        #print('startDate', startDate)
-        #print('endDate ', endDate)
         startDate = self.setFromDateTime()
         endDate = self.setToDateTime()
-        #print('From Date ',type(startDate), startDate)
-        #print('To Date ', type(endDate), endDate)
         self.concom()
 
+#  Class for creating the Menu
 class MenuBar(Menu):
     def __init__(self, master):
         Menu.__init__(self, master)
 
         file = Menu(self, tearoff=False)
-        #file.add_command(label="New")  
-        #file.add_command(label="Open")  
-        #file.add_command(label="Save")  
-        #file.add_command(label="Save as")    
         file.add_separator()
         file.add_command(label="Exit", underline=1, command=self.quit)
         self.add_cascade(label="File",underline=0, menu=file)
-        
-        #edit = Menu(self, tearoff=0)  
-        #edit.add_command(label="Undo")  
-        #edit.add_separator()     
-        #edit.add_command(label="Cut")  
-        #edit.add_command(label="Copy")  
-        #edit.add_command(label="Paste")  
-        #self.add_cascade(label="Edit", menu=edit) 
 
         help = Menu(self, tearoff=0)  
         help.add_command(label="About", command=self.about)  
@@ -375,10 +367,9 @@ class MenuBar(Menu):
         self.aboutWindow = Toplevel()
         self.aboutWindow.title('About')
         self.aboutWindow.geometry('300x200')
-        #self.aboutWindow.iconbitmap("@hd.xbm")
         self.aboutLbl = Label(self.aboutWindow, text="Created By Heydok", font=self.labelfont)
         self.aboutLbl.pack(pady=10, padx=10, anchor=CENTER)
-        self.githubLbl = Label(self.aboutWindow, text=r"https://github.com/heydok", fg="blue", cursor="hand2")
+        self.githubLbl = Label(self.aboutWindow, text=r"https://github.com/heydok/vnstatgui", fg="blue", cursor="hand2")
         self.githubLbl.pack(pady=10, padx=10, anchor=CENTER)
         self.closeBtn = Button(self.aboutWindow, text="Close", command=lambda: self.aboutWindow.destroy())
         self.closeBtn.pack(pady=20, padx=10, side="bottom", anchor=W, fill=X)
