@@ -225,3 +225,6 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# vnstatgui temp files
+vnstatgui.json

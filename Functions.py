@@ -52,7 +52,7 @@ def getoutput(params, iface='wlan0'):
                     jdate = datetime(
                         traffic['date']['year'],
                         traffic['date']['month'],
-                        currentdate.date().day
+                        1
                     )
                     down = traffic['rx']/1024/1024
                     up = traffic['tx']/1024/1024

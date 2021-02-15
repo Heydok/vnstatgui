@@ -1,5 +1,7 @@
+import json
+from os import replace
 from tkinter import *
-from tkinter import ttk
+from tkinter import ttk, filedialog
 from tkinter.font import Font
 from datetime import datetime, time
 from tkcalendar import Calendar
@@ -9,7 +11,7 @@ from Functions import getoutput, getinterfaces
 LargeFont = ("Verdana", 12)
 startDate = datetime(2021, 1, 1, 00, 00, 00)
 endDate = datetime.now()
-
+saveli = []
 
 #  Containter Class
 class vnstatgui(Tk):
@@ -76,13 +78,13 @@ class maingui(Frame):
         self.createTreeview()
         self.setupRadioButons()
 
-        #printBtn = Button(self, text="print tree", command=lambda: self.printtree())
-        #printBtn.pack()
-
         self.minsizeVar = StringVar()
         self.minsizeVar.set(-1)
         self.minsizelbl = Label(self.iface_frame, text='Min Data Size').pack()   
         self.minsize = Spinbox(self.iface_frame, textvariable=self.minsizeVar, from_=-1, to=10000).pack()
+
+        global savefile  # Allows me to save file from menu in diffrent class
+        savefile = lambda: self.savefile()
     
         
     #  Function to sort treeview data when clicking on column headers
@@ -154,7 +156,7 @@ class maingui(Frame):
             self.total = '%0.2f %s' % (line[5], line[6])
             self.pdate = ''
             if option == 'm':
-                self.pdate = self.ddate.strftime('%Y-%m')
+                self.pdate = self.ddate.strftime('%Y-%m-%d')
             elif option == 'f' or option == 'h':
                 self.pdate = self.ddate.strftime('%Y-%m-%d | %H:%M')
             else:
@@ -181,10 +183,14 @@ class maingui(Frame):
                         self.count += 1
                 except:
                     pass
+
     #  Fill in treeview data according to choice
     def showChoice(self):
         for op, val in self.dataOptions:
             if val == self.r.get():
+                saveli.clear()
+                saveli.append(op)
+                saveli.append(self.ifaceVar.get())
                 self.treeframe.config(text=op)
                 self.add_data(self.r.get(), self.ifaceVar.get())
 
@@ -211,12 +217,33 @@ class maingui(Frame):
                         value=val).grid(row=self.grow, column=self.gcolumn, sticky=N)
             self.grow += 1
 
-
     #  Test function for export option
-    def printtree(self):
+    def savefile(self):
+        
         for record in self.treeview.get_children():
             row = self.treeview.item(record)['values']
-            print(row)
+            rdate = row[0]
+            try:
+                pdate = datetime.strptime(rdate, '%Y-%m-%d | %H:%M')
+            except:
+                pdate = datetime.strptime(rdate, '%Y-%m-%d')
+            y = {"id":int(record),
+                "date":str(pdate),
+                "download":float(row[1].replace(" MB", "")),
+                "upload":float(row[2].replace(" MB", "")),
+                "total":float(row[3].replace(" MB", ""))
+
+                }
+            saveli.append(y)
+
+        file_opt = options = {}
+        options['filetypes'] = [('all files', '.*'), ('text files', '.json')]
+        options['initialfile'] = 'vnstatgui.json'
+
+        savefile = filedialog.asksaveasfile(defaultextension=".json", **file_opt)
+        if savefile is None:
+            return
+        json.dump(saveli, savefile, indent=4)
 
 #  Class for filtering the data by date
 class filterdate(Frame):
@@ -351,6 +378,7 @@ class MenuBar(Menu):
         Menu.__init__(self, master)
 
         file = Menu(self, tearoff=False)
+        file.add_command(label="Save File", underline=1, command=lambda: savefile())
         file.add_separator()
         file.add_command(label="Exit", underline=1, command=self.quit)
         self.add_cascade(label="File",underline=0, menu=file)
