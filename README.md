@@ -19,7 +19,9 @@ The idea to create this came to mind when I wanted to monitor network usage on m
 
 * vnstat
 * python 3
-* tkcalendar
+* matplotlib
+* pandas
+* PyQt5
 
 # Installation
 
