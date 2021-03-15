@@ -11,7 +11,7 @@ def get_vnstat_conf():
         configpath = os.path.expanduser('~/.vnstatrc')
         #print('if', configpath)
     else:
-        configpath = './vnstat.conf'
+        configpath = './resources/vnstat.conf'
         print('using the config in this dir ', configpath)
 
     #configpath = './vnstat.conf'
