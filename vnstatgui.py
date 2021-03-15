@@ -1,407 +1,454 @@
+from matplotlib import pyplot
+from resources.mplwidget import MplCanvas
+import sys
+import os
+import time
 import json
-from os import replace
-from tkinter import *
-from tkinter import ttk, filedialog
-from tkinter.font import Font
-from datetime import datetime, time
-from tkcalendar import Calendar
-from Functions import getoutput, getinterfaces
+from PyQt5 import QtWidgets, QtCore
+from PyQt5.QtWidgets import QDialog, QApplication, QTableWidget, QWidget, QMessageBox, QFileDialog
+from resources.Functions import get_data, getinterfaces, default_conf
+import pandas as pd
+import datetime
+from configparser import ConfigParser, ExtendedInterpolation
+from resources.Ui_mainwindow import Ui_MainWindow
+from resources.Ui_about import Ui_About
+from resources.Ui_settings import Ui_Settings
+from resources.Ui_myplot import Ui_myplot
 
 
-LargeFont = ("Verdana", 12)
-startDate = datetime(2021, 1, 1, 00, 00, 00)
-endDate = datetime.now()
-saveli = []
+import matplotlib
+matplotlib.use('Qt5Agg')
 
-#  Containter Class
-class vnstatgui(Tk):
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
-    def __init__(self, *args, **kwargs):
-        
-        Tk.__init__(self, *args, **kwargs)
-        container = Frame(self)
-        self.geometry('550x550')
-        self.title('Heydok\'s VNSTAT GUI')
-            
-        menubar = MenuBar(self)
-        self.config(menu=menubar)
 
-        container.pack(side="top", fill="both", expand = True)
+now = datetime.datetime.now()
 
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
+testdf = []
 
-        self.frames = {}
 
-        for F in (maingui, filterdate):
+class QCustomTableWidgetItem (QtWidgets.QTableWidgetItem):
 
-            frame = F(container, self)
+    def __init__ (self, value):
+        super(QCustomTableWidgetItem, self).__init__(str('%s' % value))
 
-            self.frames[F] = frame
-
-            frame.grid(row=0, column=0, sticky="nsew")
-
-        self.show_frame(maingui)
-
-    def show_frame(self, cont):
-
-        frame = self.frames[cont]
-        frame.tkraise()
-
-#  Main window
-class maingui(Frame):
-
-    def __init__(self, parent, controller):
-        Frame.__init__(self, parent)
-        label = Label(self, text="VNSTAT GUI BY HEYDOK", font = LargeFont)
-        label.pack(padx=10, pady=10)
-        
-        self.filterBtn = Button(self, text='>>> Filter Date <<<', command = lambda: controller.show_frame(filterdate))
-        self.filterBtn.pack(fill=X, padx=10)
-      
-        self.treeframe = LabelFrame(self, text="Data")
-        self.treeframe.pack(pady=20)
-
-        self.comframe = Frame(self)
-        self.comframe.pack(padx=20, fill=BOTH)
-
-        self.radio_frame = LabelFrame(self.comframe, text="Data Options", labelanchor=N)
-        self.radio_frame.pack(side=LEFT, anchor=N, expand=1)
-
-        self.iface_frame = LabelFrame(self.comframe, text="Select Interface", labelanchor=N)
-        self.iface_frame.pack(side=RIGHT, anchor=N, expand=1,)
-
-        self.tree_scroll = Scrollbar(self.treeframe)
-        self.tree_scroll.pack(side=RIGHT, fill=Y)
-
-        self.setupiface()
-        self.createTreeview()
-        self.setupRadioButons()
-
-        self.minsizeVar = StringVar()
-        self.minsizeVar.set(-1)
-        self.minsizelbl = Label(self.iface_frame, text='Min Data Size').pack()   
-        self.minsize = Spinbox(self.iface_frame, textvariable=self.minsizeVar, from_=-1, to=10000).pack()
-
-        global savefile  # Allows me to save file from menu in diffrent class
-        savefile = lambda: self.savefile()
-    
-        
-    #  Function to sort treeview data when clicking on column headers
-    def treeview_sort_column(self, tv, col, reverse):
-        try:
-            data_list = [
-                (float(self.treeview.set(k, col)[0:-3]), k) for k in self.treeview.get_children("")]
-
-        except Exception:
-            data_list = [(self.treeview.set(k, col), k) for k in self.treeview.get_children("")]
-
-        data_list.sort(reverse=reverse)
-
-        # rearrange items in sorted positions
-        for index, (val, k) in enumerate(data_list):
-            self.treeview.move(k, "", index)
-
-        # reverse sort next time
-        self.treeview.heading(
-            column=col,
-            text=col,
-            command=lambda _col=col: self.treeview_sort_column(
-                self.treeview, _col, not reverse
-            ),
-        )
-    
-    #  Create and configure treeview
-    def createTreeview(self):
-        self.columns = ("Date", "Down", "Up", "Total")
-
-        self.treeview = ttk.Treeview(self.treeframe, columns=self.columns, show='headings', yscrollcommand=self.tree_scroll.set)
-        for col in self.columns:
-            self.treeview.heading(col, text=col, command=lambda _col=col: \
-                            self.treeview_sort_column(self.treeview, _col, False))
-
-        self.treeview.pack(fill=Y)
-
-        self.treeview.column("#0", width=0, stretch=NO)
-        self.treeview.column("Date", anchor=CENTER, width=150)
-        self.treeview.column("Down", anchor=CENTER, width=110)
-        self.treeview.column("Up", anchor=CENTER, width=110)
-        self.treeview.column("Total", anchor=CENTER, width=110)
-
-        # Configure Scrollbar
-        self.tree_scroll.config(command=self.treeview.yview)
-        
-    def setupiface(self):
-        # Create Dropdown menu for Interface Selection
-        self.ifaces = getinterfaces() # Get List of interfaces
-
-        self.ifaceVar = StringVar(self.iface_frame) # Create choice Variable
-        self.ifaceVar.set(self.ifaces[0]) # Set default value to first in list      
-
-        self.ifaceMenu = OptionMenu(self.iface_frame, self.ifaceVar, *self.ifaces)
-        self.ifaceMenu.config(indicatoron=1, width=15, height=1)
-        self.ifaceMenu.pack()
-
-    #  Add data to treeview
-    def add_data(self, option, iface):
-        for record in self.treeview.get_children():
-            self.treeview.delete(record)
-       
-        self.count = 0
-        
-        for line in getoutput(option, iface):
-            self.ddate = line[0]
-            self.download = '%0.2f %s' % (line[1], line[2])
-            self.upload = '%0.2f %s' % (line[3], line[4])
-            self.total = '%0.2f %s' % (line[5], line[6])
-            self.pdate = ''
-            if option == 'm':
-                self.pdate = self.ddate.strftime('%Y-%m-%d')
-            elif option == 'f' or option == 'h':
-                self.pdate = self.ddate.strftime('%Y-%m-%d | %H:%M')
-            else:
-                self.pdate = self.ddate
-            
-            #  Still needs changes to be made to the datetime filter
-
+    def __lt__ (self, other):
+        if (isinstance(other, QCustomTableWidgetItem)):
             try:
-                if self.ddate >= startDate and self.ddate <= endDate and line[5] > float(self.minsizeVar.get()):
-                    self.treeview.insert(parent='', 
-                                    index='end', 
-                                    iid=self.count, 
-                                    text="Parent", 
-                                    values=(self.pdate, self.download, self.upload, self.total))
-                    self.count += 1
+                selfDataValue = float(str(self.data(QtCore.Qt.EditRole)))
+                otherDataValue = float(str(other.data(QtCore.Qt.EditRole)))
+                return selfDataValue < otherDataValue
             except:
-                try:
-                    if self.ddate >= startDate.date() and self.ddate <= endDate.date() and line[5] > float(self.minsizeVar.get()):
-                        self.treeview.insert(parent='',
-                                        index='end', 
-                                        iid=self.count, 
-                                        text="Parent", 
-                                        values=(self.pdate, self.download, self.upload, self.total))
-                        self.count += 1
-                except:
-                    pass
+                selfDataValue = str(self.data(QtCore.Qt.EditRole))
+                otherDataValue = str(other.data(QtCore.Qt.EditRole))
+                return selfDataValue < otherDataValue
+        else:
+            return QtWidgets.QTableWidgetItem.__lt__(self, other)
 
-    #  Fill in treeview data according to choice
-    def showChoice(self):
-        for op, val in self.dataOptions:
-            if val == self.r.get():
-                saveli.clear()
-                saveli.append(op)
-                saveli.append(self.ifaceVar.get())
-                self.treeframe.config(text=op)
-                self.add_data(self.r.get(), self.ifaceVar.get())
 
-    #  Setup and add radio buttons for data type
-    def setupRadioButons(self):
-        self.r = StringVar()
-        self.r.set(1)
-        self.grow = 0
-        self.gcolumn = 0
-        self.dataOptions = [("Five Minute Data", "f"),
-                            ("Hourly Data", "h"),
-                            ("Daily Data", "d"),
-                            ("Monthly Data", "m"),
-                            ("Top 10 Data", "t")]
+class Mainwindow(QtWidgets.QMainWindow):
+    def __init__(self):
+        super(Mainwindow, self).__init__()
+        # Set up the user interface from Designer.
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
+
+        self.ui.endDate.setDateTime(now)
+
+        self.ui.tableWidget.setColumnWidth(0, 70)
+        self.ui.tableWidget.setColumnWidth(1, 120)
+        self.ui.tableWidget.setColumnWidth(2, 95)
+        self.ui.tableWidget.setColumnWidth(3, 95)
+        self.ui.tableWidget.setColumnWidth(4, 100)
+
+        self.ui.plotdataBtn.clicked.connect(lambda: self.showplot())
+        self.ui.refreshBtn.clicked.connect(lambda: self.refesh())
+        self.ui.actionRefresh.triggered.connect(lambda: self.refesh())
+        self.ui.actionSettings.triggered.connect(lambda: self.showSettings())
+        self.ui.actionExit.triggered.connect(lambda: self.exitCall())
+        self.ui.actionAbout.triggered.connect(lambda: self.showabout())
+        self.ui.actionSave_Data.triggered.connect(lambda: self.saveFileDialog())
+
+        self.interfaces()
+        self.datatype()
+        self.dataSize()
+        self.loaddata()
+
+        self.worker = WorkThread()
+        self.workerThread = QtCore.QThread()
+        self.workerThread.started.connect(self.worker.run)
+        self.worker.moveToThread(self.workerThread)
+        self.worker.UpdateSignals.connect(self.UpdateLiveDataFunction)
+
+        self.ui.ispausedBtn.clicked.connect(self.PauseThreading)
+        app.aboutToQuit.connect(lambda: self.StopThreading(None))
+        self.StartThreading(None)
+
+
+    def StartThreading(self, event):
+        self.workerThread.start()
+
+
+    def StopThreading(self, event):
+        self.worker.stop()
+        self.workerThread.quit()
+        self.workerThread.wait()
+
+
+    def PauseThreading(self, event):
+        self.worker.pause()
+
+
+    def UpdateLiveDataFunction(self, value):
+        self.ui.rxLbl.setText(value[0])
+        self.ui.txLbl.setText(value[1])
+
+    def loaddata(self):
+        # self.ui.tableWidget.clearContents()
+        iface = self.ui.interfaceCB.currentText()
+        datatype = self.ui.datatypeCB.currentData()
+        startdate = self.ui.startDate.dateTime().toPyDateTime()  # toString("yyyy-MM-dd HH:MM:SS")
+        enddate = self.ui.endDate.dateTime().toPyDateTime()
+        dataSize = self.ui.minSize.value()
+
+        df = get_data(datatype, iface)
+        df.drop(columns=['id'], inplace=True)
+
+        df['Download'] = df['Download'].apply('{:,.2f}'.format).replace({'\$': '', ',': ''}, regex=True).astype(float)
+        df['Upload'] = df['Upload'].apply('{:,.2f}'.format).replace({'\$': '', ',': ''}, regex=True).astype(float)
+        df['Total'] = df['Total'].apply('{:,.2f}'.format).replace({'\$': '', ',': ''}, regex=True).astype(float)
+        df['FiltDate'] = pd.to_datetime(df['Date'])
+
+        filt = (df['FiltDate'] >= startdate) & (df['FiltDate'] <= enddate) & (df['Total'] >= dataSize)
+        df = df.loc[filt] 
         
-        for op, val in self.dataOptions:
-            Radiobutton(self.radio_frame, 
-                        text=op,
-                        indicatoron=0,
-                        width=20,
-                        padx = 20, 
-                        variable=self.r, 
-                        command=self.showChoice,
-                        value=val).grid(row=self.grow, column=self.gcolumn, sticky=N)
-            self.grow += 1
+        self.ui.tableWidget.setRowCount(df.shape[0])
+        self.ui.tablewdgBox.setTitle(self.ui.datatypeCB.currentText())
+        self.ui.tableWidget.resizeRowsToContents()
 
-    #  Test function for export option
-    def savefile(self):
+        df_array = df.values
+        for row in range(df.shape[0]):
+            # self.ui.tableWidget.setRowHeight(row, 5)
+            for col in range(df.shape[1]):
+                self.ui.tableWidget.setItem(row, col, QCustomTableWidgetItem(df_array[row,col]))
         
-        for record in self.treeview.get_children():
-            row = self.treeview.item(record)['values']
-            rdate = row[0]
-            try:
-                pdate = datetime.strptime(rdate, '%Y-%m-%d | %H:%M')
-            except:
-                pdate = datetime.strptime(rdate, '%Y-%m-%d')
-            y = {"id":int(record),
-                "date":str(pdate),
-                "download":float(row[1].replace(" MB", "")),
-                "upload":float(row[2].replace(" MB", "")),
-                "total":float(row[3].replace(" MB", ""))
+        self.readTableData()
 
-                }
-            saveli.append(y)
+    
+    def interfaces(self):
+        ifacelist = getinterfaces()
+        self.ui.interfaceCB.addItem('All', 'All')
+        self.ui.interfaceCB.addItems(ifacelist)
+        self.ui.interfaceCB.setCurrentIndex(1)
+        self.ui.interfaceCB.currentIndexChanged.connect( lambda: self.loaddata())
 
-        file_opt = options = {}
-        options['filetypes'] = [('all files', '.*'), ('text files', '.json')]
-        options['initialfile'] = 'vnstatgui.json'
 
-        savefile = filedialog.asksaveasfile(defaultextension=".json", **file_opt)
-        if savefile is None:
+    def datatype(self):
+        types = ["fiveminute", "hour", "day", "month", "year", "top"]
+        index = 0
+        
+        for i in types:
+            self.ui.datatypeCB.setItemData(index, i)
+            index += 1
+
+        self.ui.datatypeCB.setCurrentIndex(2)
+        self.ui.datatypeCB.currentIndexChanged.connect( lambda: self.loaddata())
+
+
+    def dataSize(self):
+        minSize = self.ui.minSize.value()
+        self.ui.minSize.valueChanged.connect(lambda: self.loaddata())
+        return minSize
+
+
+    def refesh(self):
+        self.ui.tableWidget.clearSelection()
+        #self.ui.tableWidget.disconnect()
+        self.ui.tableWidget.clearContents()
+        self.ui.tableWidget.setRowCount(0)
+        self.loaddata()
+        print("Done!")
+
+
+    def exitCall(self):
+            print("Thank you, Come again.")
+            self.close()
+
+
+    def showabout(self):
+        self.about = about_ui()
+        self.about.show()
+
+
+    def showSettings(self):
+        self.settings = settings_ui()
+        self.settings.show()
+
+
+    def showplot(self):
+        self.myplot = myplot_ui()
+        self.myplot.show()
+
+
+    def readTableData(self):
+        table = self.ui.tableWidget
+        col_count = table.columnCount()
+        row_count = table.rowCount()
+        headers = [str(table.horizontalHeaderItem(i).text()) for i in range(col_count)]
+
+        # df indexing is slow, so use lists
+        df_list = []
+        for row in range(row_count):
+            df_list2 = []
+            for col in range(col_count):
+                table_item = table.item(row,col)
+                df_list2.append('' if table_item is None else str(table_item.text()))
+            df_list.append(df_list2)
+
+        df = pd.DataFrame(df_list, columns=headers)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df['Download'] = df['Download'].astype(float)
+        df['Upload'] = df['Upload'].astype(float)
+        df['Total'] = df['Total'].astype(float)
+        
+        global testdf
+        testdf = df
+
+
+    def saveFileDialog(self):
+        savedf = testdf        
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        filename, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", "vnstat.json","JSON Files (*.json)", options=options)
+        if filename == "":
             return
-        json.dump(saveli, savefile, indent=4)
+        with open(filename, 'w') as f:
+            text = savedf.to_json(orient="table")
+            parsed = json.loads(text)
+            f.write(json.dumps(parsed, indent=4))
+        
 
-#  Class for filtering the data by date
-class filterdate(Frame):
+class about_ui(QtWidgets.QWidget):
+    def __init__(self):
+        super(about_ui, self).__init__()
+        self.ui = Ui_About()
+        self.ui.setupUi(self)
+
+
+class settings_ui(QtWidgets.QWidget):
+    def __init__(self):
+        super(settings_ui, self).__init__()
+        self.ui = Ui_Settings()
+        self.ui.setupUi(self)
+
+        self.ui.resetBtn.clicked.connect(lambda: self.reset_config())
+        self.ui.saveBtn.clicked.connect(lambda: self.save_config())
+
+        self.configpath = '~/.vnstatrc'
+        if not self.configpath is None:
+            self.configpath = os.path.expanduser(self.configpath)
+        self.defaultdict = default_conf
+
+
+        # assess the parser dict
+        parser = ConfigParser(comment_prefixes='#', delimiters=' ', interpolation=ExtendedInterpolation())
+        parser.optionxform = str
+        try:
+            parser.read(self.configpath)
+        except TypeError as e:
+            print(e)
+            print("Using the defaultdict instead")
+            parser.read_dict(self.defaultdict)
+        finally:
+            parser_dict = self.as_dict(parser)
+            self.build(parser_dict)
+
+
+    def build(self, parser_dict: dict) -> None:
+        
+        self.parser_dict = parser_dict
+        self._fields = []  # list of the input widgets from every section
+        self._sections = self.parser_dict.keys()  # list of all the sections
+        self._section_keys = []  # list of keys from every section
+        
+        for section in self._sections:
+            self._section_keys.extend(self.parser_dict[section].keys())
+
+        # make a LabelFrame for each section in the ConfigParser
+        for section in self.parser_dict.keys():
+            
+            self.tabWidget = QtWidgets.QTabWidget()
+            self.ui.tabWidget.addTab(self.tabWidget, section.title())
+            
+            self.scrollArea = QtWidgets.QScrollArea(self.tabWidget)
+            self.scrollArea.setGeometry(QtCore.QRect(20, 20, 480, 480))
+            
+            self.scrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+            self.scrollArea.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+            
+            self.scrollAreaWidgetContents = QtWidgets.QWidget()
+            self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 480, 800))
+            self.scrollArea.setWidget(self.scrollAreaWidgetContents)
+        
+            self.ax = 10
+            self.ay = 10
+
+            for idx, section_key in enumerate(self.parser_dict[section].keys()):
+                self.label = QtWidgets.QLabel(section_key.title(), self.scrollAreaWidgetContents)
+                self.label.setGeometry(QtCore.QRect(self.ax, self.ay, 210, 20))
+                self.lineEdit = QtWidgets.QLineEdit(self.parser_dict[section][section_key], self.scrollAreaWidgetContents)
+                self.lineEdit.setGeometry(QtCore.QRect(220, self.ay, 210, 20))
+                self.ay += 25
+
+                self._fields.append(self.lineEdit)
+            
+
+    def save_config(self):
+        #Saves the contents of the form to configpath if one was passed.
+        # collect all the inputs
+        all_inputs = []
+        for child in self._fields:  # filter getting by widget class
+            if isinstance(child, QtWidgets.QLineEdit):
+                all_inputs.append(child.text())
+
+
+        new_parser_dict = {}
+        for section in self._sections:
+            new_parser_dict[section] = {}
+            for section_key, input in zip(self._section_keys, all_inputs):
+                if section_key in self.parser_dict[section]:
+                    # configparser uses ordereddicts by default
+                    # this should maintain their order
+                    new_parser_dict[section][section_key] = input
+        #print(new_parser_dict)
+
+        parser = ConfigParser(comment_prefixes='#', delimiters=' ', interpolation=ExtendedInterpolation())
+        parser.optionxform = str
+        parser.read_dict(new_parser_dict)
+        if self.configpath is None:
+            print(f'Not saving to file because configpath is {self.configpath}')
+        else:
+            with open("./deletethis.conf", 'w') as configfile:
+                parser.write(configfile)
+        # reset the form to reflect the changes
+        self.reset_config(new_parser_dict)
+        QMessageBox.information(self, "Config Saved", f"Config saved to {self.configpath}")
+
+
+    def reset_config(self, dict=None):
+
+        if dict == None:
+            dict = self.defaultdict
+            """Rebuilds the ConfigManager from the defaultdict."""
+            print('Rebuilding form from defaultdict')
+            QMessageBox.information(self, "Config Reset", "Default config loaded, remember to save!")
+        self.ui.tabWidget.clear()
+        self.ui.tabWidget.addTab(QtWidgets.QTabWidget(), "temp tab")
+        self.build(dict)
+        self.ui.tabWidget.removeTab(0)               
+
+
+    def as_dict(self, config) -> dict:
+        """
+        Converts a ConfigParser object into a dictionary.
+        The resulting dictionary has sections as keys which point to a dict of the
+        sections options as key : value pairs.
+        """
+        the_dict = {}
+        for section in config.sections():
+            the_dict[section] = {}
+            for key, val in config.items(section):
+                the_dict[section][key] = val
+        return the_dict
+
+
+class myplot_ui(QtWidgets.QMainWindow):
     
-    def __init__(self, parent, controller):
-    	
-        Frame.__init__(self, parent)
-        label = Label(self, text="SELECT DATE RANGE", font = LargeFont)
-        label.pack(pady=10,padx=10)
-        
-        self.from_hour_string=StringVar()
-        self.from_min_string=StringVar()
-        self.to_hour_string=StringVar()
-        self.to_min_string=StringVar()
-        self.from_hour_string.set(0)
-        self.from_min_string.set(0)
-        self.to_hour_string.set(datetime.now().hour)
-        self.to_min_string.set(datetime.now().minute)
-        self.f = ('Times', 12)
-
-        self.mainFrame = Frame(self)
-        self.mainFrame.pack(side=TOP)
-
-        self.fromFrame = LabelFrame(self.mainFrame, text='From Date', labelanchor=N)
-        self.toFrame = LabelFrame(self.mainFrame, text='To Date', labelanchor=N)
-        self.fromFrame.pack(pady=10, side=LEFT)
-        self.toFrame.pack(pady=10, side=RIGHT)
-
-        self.calFrom = Calendar(self.fromFrame, selectmode='day')
-        self.calFrom.pack(padx=5)
-
-        self.calTo = Calendar(self.toFrame, selectmode='day')
-        self.calTo.pack(padx=5)
-
-        self.from_hour_sb = Spinbox(
-            self.fromFrame,
-            from_=0,
-            to=23,
-            wrap=True,
-            textvariable=self.from_hour_string,
-            width=1,
-            font=self.f,
-            justify=CENTER
-            )
-        self.from_min_sb = Spinbox(
-            self.fromFrame,
-            from_=0,
-            to=59,
-            wrap=True,
-            textvariable=self.from_min_string,
-            font=self.f,
-            width=1,
-            justify=CENTER
-            )
-
-        self.frommsg = Label(
-            self.fromFrame, 
-            text="Hour     Minute",
-            font=("Times", 12)
-            )
-        self.frommsg.pack(pady=(10, 0))
-
-        self.from_hour_sb.pack(padx=(60, 0),side=LEFT, fill=X, expand=True)
-        self.from_min_sb.pack(padx=(0, 60), side=LEFT, fill=X, expand=True)
+    def __init__(self):
+        super(myplot_ui, self).__init__()
+        self.ui = Ui_myplot()
+        self.ui.setupUi(self)
+        # print(pyplot.style.available)
+        self.plot_data()
 
 
-        self.to_hour_sb = Spinbox(
-            self.toFrame,
-            from_=0,
-            to=23,
-            wrap=True,
-            textvariable=self.to_hour_string,
-            width=1,
-            font=self.f,
-            justify=CENTER
-            )
-        self.to_min_sb = Spinbox(
-            self.toFrame,
-            from_=0,
-            to=59,
-            wrap=True,
-            textvariable=self.to_min_string,
-            font=self.f,
-            width=1,
-            justify=CENTER
-            )
+    def plot_data(self):
+        pyplot.style.use('seaborn')
+        sc = MplCanvas()
+        sc.ax.set_title('Data Usage')
+        testdf.plot(kind='barh', x="Date", y=["Download", "Upload", "Total"], ax=sc.ax)
 
-        self.tomsg = Label(
-            self.toFrame, 
-            text="Hour     Minute",
-            font=("Times", 12)
-            )
-        self.tomsg.pack(pady=(10, 0))
+        sc.ax.set_ylabel('Date Selected')
+        sc.ax.set_xlabel('Date usage in Megabyte - Mb')
+        self.setCentralWidget(sc)
 
-        self.to_hour_sb.pack(padx=(60, 0), side=LEFT, fill=X, expand=True)
-        self.to_min_sb.pack(padx=(0, 60), side=LEFT, fill=X, expand=True)
 
-        self.confirmBtn = Button(self, text="Confirm", command=lambda: self.Confirm())
-        self.confirmBtn.pack(side=TOP, fill=X, padx=5)
-        self.backBtn = Button(self, text="Back", command=lambda: controller.show_frame(maingui))
-        self.backBtn.pack(side=TOP, fill=X, padx=5)
-        
-        self.concom = lambda: controller.show_frame(maingui)
+        self.addToolBar(NavigationToolbar2QT(sc, self))
 
-    def setFromDateTime(self):
-        self.fromDate = self.calFrom.selection_get()
-        self.fromHour = self.from_hour_sb.get()
-        self.fromMin = self.from_min_sb.get()
-        self.fromtime = time(int(self.fromHour), int(self.fromMin))
-        self.fromDateTime = datetime.combine(self.fromDate, self.fromtime)
-        startDate = self.fromDateTime
-        return startDate
+        pyplot.tight_layout()
+        pyplot.autumn()
 
-    def setToDateTime(self):
-        self.toDate = self.calTo.selection_get()
-        self.toHour = self.to_hour_sb.get()
-        self.toMin = self.to_min_sb.get()
-        self.totime = time(int(self.toHour), int(self.toMin))
-        self.toDateTime = datetime.combine(self.toDate, self.totime)
-        endDate = self.toDateTime
-        return endDate
 
-    def Confirm(self):
-        global startDate, endDate
-        startDate = self.setFromDateTime()
-        endDate = self.setToDateTime()
-        self.concom()
+class WorkThread(QtCore.QObject):
 
-#  Class for creating the Menu
-class MenuBar(Menu):
-    def __init__(self, master):
-        Menu.__init__(self, master)
+    UpdateSignals = QtCore.pyqtSignal(list)
 
-        file = Menu(self, tearoff=False)
-        file.add_command(label="Save File", underline=1, command=lambda: savefile())
-        file.add_separator()
-        file.add_command(label="Exit", underline=1, command=self.quit)
-        self.add_cascade(label="File",underline=0, menu=file)
+    def __init__(self):
+        super().__init__()
 
-        help = Menu(self, tearoff=0)  
-        help.add_command(label="About", command=self.about)  
-        self.add_cascade(label="Help", menu=help)  
+        self.toStop = False
+        self.isPaused = False
 
-    def exit(self):
-        self.exit
 
-    def about(self):
-        self.labelfont = Font(family='Times', size=15, underline=1, weight='bold', slant='italic')
-        self.aboutWindow = Toplevel()
-        self.aboutWindow.title('About')
-        self.aboutWindow.geometry('300x200')
-        self.aboutLbl = Label(self.aboutWindow, text="Created By Heydok", font=self.labelfont)
-        self.aboutLbl.pack(pady=10, padx=10, anchor=CENTER)
-        self.githubLbl = Label(self.aboutWindow, text=r"https://github.com/heydok/vnstatgui", fg="blue", cursor="hand2")
-        self.githubLbl.pack(pady=10, padx=10, anchor=CENTER)
-        self.closeBtn = Button(self.aboutWindow, text="Close", command=lambda: self.aboutWindow.destroy())
-        self.closeBtn.pack(pady=20, padx=10, side="bottom", anchor=W, fill=X)
+    def get_bytes(self, t, iface='wlan0'):
+        with open('/sys/class/net/' + iface + '/statistics/' + t + '_bytes', 'r') as f:
+            self.data = f.read()
+            return int(self.data)
 
-app = vnstatgui()
-app.mainloop()
 
+    def stop(self):
+        self.toStop = True
+
+
+    def pause(self):
+        if not self.isPaused:
+            self.isPaused = True
+        else:
+            self.isPaused = False
+
+
+    @QtCore.pyqtSlot()
+    def run(self):
+
+        while not self.toStop:
+
+            while self.isPaused:
+                time.sleep(1)
+                self.UpdateSignals.emit(['Paused!', 'Paused!'])
+
+            tx1 = self.get_bytes('tx')
+            rx1 = self.get_bytes('rx')
+
+            time.sleep(1)
+
+            tx2 = self.get_bytes('tx')
+            rx2 = self.get_bytes('rx')
+
+            tx_speed = round((tx2 - tx1) / 1024, 2)    # 1048576 for Mb
+            rx_speed = round((rx2 - rx1) / 1024, 2)    # 1048576 for Mb
+
+            tx_rate = ("{:.2f}".format(tx_speed))
+            rx_rate = ("{:.2f}".format(rx_speed))
+
+            rates = [str(rx_rate) + " Kbps", str(tx_rate) + " Kbps"]
+
+            self.UpdateSignals.emit(rates)
+
+
+app = QApplication(sys.argv)
+window = Mainwindow()
+window.show()
+try:
+    sys.exit(app.exec_())
+except:
+    print("Exiting")
